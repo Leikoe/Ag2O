@@ -25,6 +25,12 @@ impl ApplicationHandler for App {
         event: winit::event::WindowEvent,
     ) {
         println!("window_event {:?} {:?} {:?}", event_loop, window_id, event);
+        match event {
+            winit::event::WindowEvent::CloseRequested => {
+                event_loop.exit();
+            }
+            _ => {}
+        };
     }
 }
 
