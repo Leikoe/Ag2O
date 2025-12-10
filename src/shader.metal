@@ -1,7 +1,8 @@
 #include <metal_stdlib>
+//#include <metal_logging>
 using namespace metal;
 
-constant metal::os_log custom_log("com.custom_log.subsystem", "custom category");
+//constant metal::os_log custom_log("com.custom_log.subsystem", "custom category");
 
 struct VertexOut {
     float4 position [[position]];
@@ -25,12 +26,12 @@ constant float2 baseTexCoords[4] = {
 };
 
 vertex VertexOut vertex_main(
-    uint vertexID [[vertex_id]],
-    constant ViewUniforms &uniforms [[buffer(1)]] // <-- We receive data here!
+    uint vertexID [[vertex_id]]//,
+    //constant ViewUniforms &uniforms [[buffer(1)]] // <-- We receive data here!
 ) {
     VertexOut out;
 
-    custom_log.log("custom message hi!!");
+    //custom_log.log("custom message hi!!");
 
     // 1. Calculate Position
     // We keep the quad filling the screen (-1 to 1)
@@ -43,10 +44,10 @@ vertex VertexOut vertex_main(
 
     // Apply Zoom (Scale)
     // We center the zoom by subtracting 0.5, scaling, then adding 0.5 back
-    uv = (uv - 0.5) * (1.0 / uniforms.scale) + 0.5;
+    // uv = (uv - 0.5) * (1.0 / uniforms.scale) + 0.5;
 
     // Apply Pan (Offset)
-    uv -= uniforms.offset;
+    // uv -= uniforms.offset;
 
     // (Optional: Aspect Ratio fix would happen here too)
 
@@ -54,8 +55,11 @@ vertex VertexOut vertex_main(
     return out;
 }
 
-fragment float4 fragment_main(VertexOut in [[stage_in]],
-                                texture2d<float> texture [[texture(0)]]) {
-    constexpr sampler s(mag_filter::linear, min_filter::linear, address::clamp_to_edge);
-    return texture.sample(s, in.texCoord);
+fragment float4 fragment_main(
+    VertexOut in [[stage_in]]//,
+    //texture2d<float> texture [[texture(0)]]
+) {
+    //constexpr sampler s(mag_filter::linear, min_filter::linear, address::clamp_to_edge);
+    //return texture.sample(s, in.texCoord);
+    return float4(1.0, 0.0, 0.0, 1.0);
 }

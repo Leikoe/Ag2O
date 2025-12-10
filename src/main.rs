@@ -1,16 +1,20 @@
 use std::ptr::NonNull;
+use std::thread;
+use std::time::Duration;
 
+use objc2::AnyThread;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2_app_kit::NSView;
-use objc2_foundation::{NSString, NSURL};
+use objc2_foundation::{NSURL, ns_string};
 use objc2_metal::{
     MTL4CommandAllocator, MTL4CommandBuffer, MTL4CommandEncoder, MTL4CommandQueue, MTL4Compiler,
     MTL4CompilerDescriptor, MTL4LibraryDescriptor, MTL4LibraryFunctionDescriptor,
     MTL4RenderCommandEncoder, MTL4RenderPassDescriptor, MTL4RenderPipelineDescriptor,
     MTLClearColor, MTLCommandBuffer, MTLCommandEncoder, MTLCommandQueue,
     MTLCreateSystemDefaultDevice, MTLDevice, MTLDrawable, MTLLibrary, MTLLoadAction,
-    MTLPrimitiveType, MTLRenderPassDescriptor, MTLRenderPipelineState, MTLTexture, MTLViewport,
+    MTLPrimitiveType, MTLRenderPassDescriptor, MTLRenderPipelineState, MTLStoreAction, MTLTexture,
+    MTLViewport,
 };
 use objc2_metal_kit::{MTKTextureLoader, MTKView};
 
@@ -35,7 +39,7 @@ impl ApplicationHandler for App {
         println!("resumed!");
         if self.window.is_none() {
             let window = event_loop
-                .create_window(WindowAttributes::default())
+                .create_window(WindowAttributes::default().with_title("Metal Image Viewer"))
                 .unwrap();
 
             // setup a view on which metal can draw
@@ -68,6 +72,7 @@ impl ApplicationHandler for App {
             command_buffer_allocator.reset();
             let command_buffer = self.device.newCommandBuffer().unwrap();
             command_buffer.beginCommandBufferWithAllocator(&command_buffer_allocator);
+            command_buffer.setLabel(Some(ns_string!("my cmd buffer 0")));
 
             let drawable = layer.nextDrawable().unwrap();
             let encoder_desc = {
@@ -87,6 +92,9 @@ impl ApplicationHandler for App {
                 .renderCommandEncoderWithDescriptor(&encoder_desc)
                 .unwrap();
             encoder.setRenderPipelineState(self.render_pipeline_state.as_ref());
+            unsafe {
+                encoder.drawPrimitives_vertexStart_vertexCount(MTLPrimitiveType::Triangle, 0, 3)
+            };
             encoder.endEncoding();
             command_buffer.endCommandBuffer();
 
@@ -141,7 +149,7 @@ fn main() {
 
     // compile our shader into a library
     let library_desc = MTL4LibraryDescriptor::new();
-    let src_string = NSString::from_str(SHADER_SOURCE);
+    let src_string = ns_string!(SHADER_SOURCE);
     library_desc.setSource(Some(&src_string));
     let library = compiler
         .newLibraryWithDescriptor_error(&library_desc)
@@ -151,18 +159,25 @@ fn main() {
     let fragment_function_desc = {
         let d = MTL4LibraryFunctionDescriptor::new();
         d.setLibrary(Some(&library));
-        d.setName(Some(&NSString::from_str("fragment_main")));
+        d.setName(Some(ns_string!("fragment_main")));
         d
     };
     let vertex_function_desc = {
         let d = MTL4LibraryFunctionDescriptor::new();
         d.setLibrary(Some(&library));
-        d.setName(Some(&NSString::from_str("vertex_main")));
+        d.setName(Some(ns_string!("vertex_main")));
         d
     };
     let render_pipeline_desc = MTL4RenderPipelineDescriptor::new();
+    render_pipeline_desc.setLabel(Some(ns_string!("My basic Metal 4 render pipeline")));
     render_pipeline_desc.setFragmentFunctionDescriptor(Some(&fragment_function_desc));
     render_pipeline_desc.setVertexFunctionDescriptor(Some(&vertex_function_desc));
+    unsafe {
+        render_pipeline_desc
+            .colorAttachments()
+            .objectAtIndexedSubscript(0)
+            .setPixelFormat(objc2_metal::MTLPixelFormat::BGRA8Unorm);
+    }
     let render_pipeline_state = compiler
         .newRenderPipelineStateWithDescriptor_compilerTaskOptions_error(&render_pipeline_desc, None)
         .unwrap();
@@ -170,8 +185,8 @@ fn main() {
     // let tl = unsafe { MTKTextureLoader::alloc() };
     // let tl = MTKTextureLoader::initWithDevice(tl, &device);
 
-    // let path = NSString::from_str("/Users/leo/git/Ag2O/for_valued_client.png");
-    // let path = NSString::from_str("/Users/leo/git/Ag2O/lunar_lake.jpg");
+    // let path = ns_string!("/Users/leo/git/Ag2O/for_valued_client.png");
+    // let path = ns_string!("/Users/leo/git/Ag2O/lunar_lake.jpg");
     // let url = NSURL::fileURLWithPath(&path);
     // let texture = unsafe {
     //     tl.newTextureWithContentsOfURL_options_error(&url, None)
@@ -228,5 +243,5 @@ fn main() {
         render_pipeline_state,
     };
 
-    let _ = event_loop.run_app(&mut app);
+    event_loop.run_app(&mut app).expect("event loop died");
 }
